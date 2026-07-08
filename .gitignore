@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+.ipynb_checkpoints/
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+.agents/
+.codex/
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Model weights and checkpoints
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.gguf
+
+# Experiment outputs
+runs/
+outputs/
+checkpoints/
+weights/
+logs/
+wandb/
+mlruns/
+lightning_logs/
+*.log
+*.tmp
+*.tmp.*
+*.bak
+*.prof
+
+# jlens visualizations
+slice*.html
+slices/

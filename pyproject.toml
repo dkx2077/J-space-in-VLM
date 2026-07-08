@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "j-space-in-vlm"
+version = "0.1.0"
+description = "Multimodal Jacobian-lens tools for studying J-space-like representations in VLMs"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = [
+    "torch",
+    "huggingface_hub",
+    "transformers>=5.5",
+    "numpy",
+]
+
+[project.urls]
+Repository = "https://github.com/dkx2077/J-space-in-VLM"
+Paper = "https://transformer-circuits.pub/2026/workspace/index.html"
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "datasets"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "E741"]
+
+[tool.setuptools]
+packages = ["jlens"]
+
+[tool.setuptools.package-data]
+jlens = ["data/*"]
