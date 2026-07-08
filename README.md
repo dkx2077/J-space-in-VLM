@@ -1,11 +1,14 @@
 # J-space in VLM
 
-This project adapts ideas and implementation patterns from Anthropic's
-jacobian-lens reference implementation, released under the Apache License 2.0.
-**J-space-in-VLM** studies J-space-like representations in VLMs using a
-multimodal Jacobian lens.
+**J-space-in-VLM** adapts the Jacobian-lens idea to vision-language models
+(VLMs). It extends Anthropic's text-only Jacobian-lens reference path to
+Qwen3-VL, so intermediate multimodal residual streams can be transported into a
+final-layer-readable **J-space** and decoded with the model's own language head.
 
-## Image #1 Probe Example
+The main experimental question is simple: after seeing an image and prompt,
+which concepts become readable at which layers?
+
+## Example: Image #1 Probe
 
 <p align="center">
   <img src="assets/image.png" alt="Image #1 input" width="280">
@@ -21,20 +24,17 @@ multimodal Jacobian lens.
 
 **Conclusion:** phrase-level J-lens readout strongly surfaces the visible
 prohibition/parrot concepts (`禁止`, `鸟`, `鹦鹉`, `黄色`), while adult or obscene
-phrases remain much weaker, suggesting the model reads this image primarily as
-a prohibition/parrot-metaphor example rather than explicit sexual content.
+phrases remain much weaker.
 
 <p align="center">
   <img src="assets/jlens_phrase_emergence_order_image1.png" alt="J-lens phrase emergence order by rank threshold" width="760">
 </p>
 
 **Emergence:** the readable order is roughly `禁止` first, then `鸟`/`黄色`,
-then `鹦鹉`, while sexual or vulgar phrases do not become strong top-20 J-space
+then `鹦鹉`; sexual or vulgar phrases do not become strong top-20 J-space
 readouts.
 
-This repository extends the original Jacobian-lens code path to multimodal
-Qwen3-VL models. The goal is to inspect what each residual-stream layer is
-already making available for the model's own final readout.
+## Core Idea
 
 For a residual vector `h_l` at layer `l`, the multimodal J-lens transports it
 through an average Jacobian into the final residual basis, then decodes it with
@@ -45,14 +45,66 @@ J-lens_l(h_l) = lm_head(norm(J_l @ h_l))
 J_l = E[d h_final / d h_l]
 ```
 
-The baseline is the native logit-lens readout:
+The native logit-lens baseline is:
 
 ```text
 native_l(h_l) = lm_head(norm(h_l))
 ```
 
-In this README, **J-space** means the final-layer-readable space produced by
-`J_l @ h_l`. No extra classifier is trained.
+Here, **J-space** means the final-layer-readable space produced by `J_l @ h_l`.
+No extra classifier is trained.
+
+## Local Paths
+
+The examples below use repo-relative paths and do not rely on machine-specific
+absolute directories:
+
+```bash
+export MODEL_DIR="local_models/Qwen3-VL-4B-Instruct"
+export VQA_DIR="local_data/VQAv2_val_1000"
+export JLENS_DIR="pretrained/qwen3-vl-4b-multimodal-jlens-vqav2-100"
+export FIT_RUN="runs/qwen3vl_jlens_fit100_stride2"
+```
+
+`local_models/`, `local_data/`, `pretrained/`, and `runs/` are local-only
+directories ignored by Git. You can point any of these variables to another
+disk if needed.
+
+## Download Model And Lens Weights
+
+Install the Hugging Face CLI:
+
+```bash
+python3 -m pip install -U huggingface_hub
+```
+
+If your environment requires authentication:
+
+```bash
+hf auth login
+```
+
+Download Qwen3-VL-4B-Instruct to a chosen local path:
+
+```bash
+mkdir -p "$MODEL_DIR"
+hf download Qwen/Qwen3-VL-4B-Instruct \
+  --local-dir "$MODEL_DIR"
+```
+
+Download the released multimodal J-lens weights:
+
+```bash
+mkdir -p "$JLENS_DIR"
+hf download dkx2077/qwen3-vl-4b-multimodal-jlens-vqav2-100 \
+  lens.pt lens.ckpt.pt metadata.json README.md \
+  --local-dir "$JLENS_DIR"
+```
+
+The hosted `lens.pt` is the averaged J-lens file for readout/probing. The
+hosted `lens.ckpt.pt` is a resumable fitting checkpoint. This release was
+started as a 100-sample VQAv2 run, but the uploaded weights contain 49 completed
+fit samples after one OOM-skipped sample and an interrupted run.
 
 ## Repository Layout
 
@@ -69,20 +121,30 @@ scripts/
   download_vqav2_val_subset.py  download and prepare a small VQAv2 val subset
   qwen3vl_jlens_experiment.py   VQAv2 split creation and Qwen3-VL fitting
   qwen3vl_compare_readouts.py   native vs J-lens held-out readout comparison
-  qwen3vl_probe_target_word.py  single-image target-word probing
+  qwen3vl_probe_target_word.py  single-image target-phrase probing
 
 runs/             local experiment outputs and checkpoints, ignored by Git
+local_models/     optional local model downloads, ignored by Git
+local_data/       optional local dataset downloads, ignored by Git
+pretrained/       optional downloaded J-lens weights, ignored by Git
 ```
 
-## Install
+## Setup
 
 ```bash
 pip install -e .
 ```
 
-The Qwen3-VL experiments also need a local Qwen3-VL checkpoint, a compatible
-`transformers` / `Qwen3VLProcessor` environment, PIL image support, and a CUDA
-GPU with enough memory for Jacobian fitting.
+Qwen3-VL experiments also need:
+
+- a local Qwen3-VL checkpoint, such as `$MODEL_DIR`;
+- a compatible `transformers` environment with `Qwen3VLProcessor` /
+  `Qwen3VLForConditionalGeneration`;
+- PIL image support;
+- a CUDA GPU with enough memory for Jacobian fitting.
+
+The scripts accept `--model "$MODEL_DIR"`, so the model can live either inside
+the ignored `local_models/` directory or on another disk.
 
 ## Prepare VQAv2 Val Data
 
@@ -101,22 +163,21 @@ one question, and the short VQA answer:
 }
 ```
 
-To download a 1000-example VQAv2 validation subset into the path used by the
-local experiments:
+Download a 1000-example VQAv2 validation subset:
 
 ```bash
 python3 scripts/download_vqav2_val_subset.py \
-  --out XX/VQAv2_val_1000 \
+  --out "$VQA_DIR" \
   --limit 1000 \
   --fit-count 900 \
   --val-count 100
 ```
 
-This downloads the official VQAv2 validation questions and annotations, then
-downloads only the referenced COCO `val2014` image files. It writes:
+The downloader fetches the official VQAv2 validation questions and annotations,
+then downloads only the referenced COCO `val2014` images. It writes:
 
 ```text
-XX/VQAv2_val_1000/
+$VQA_DIR/
   raw/official zip and JSON files
   images/COCO_val2014_*.jpg
   metadata.jsonl
@@ -124,12 +185,11 @@ XX/VQAv2_val_1000/
   splits/val_100.jsonl
 ```
 
-If `metadata.jsonl` already exists and only the train/held-out split files need
-to be regenerated:
+If `metadata.jsonl` already exists and only split files need to be regenerated:
 
 ```bash
 python3 scripts/qwen3vl_jlens_experiment.py make-splits \
-  --data-dir XX/VQAv2_val_1000 \
+  --data-dir "$VQA_DIR" \
   --fit-count 900 \
   --val-count 100
 ```
@@ -144,17 +204,11 @@ but changes how activations are collected:
 2. `encode_sample()` builds a teacher-forced chat sequence with image, question,
    and assistant answer.
 3. `forward_model()` calls the full Qwen3-VL multimodal model path, preserving
-   image embeddings and visual deepstack injection.
+   image embeddings and visual DeepStack injection.
 4. `Qwen3VLResidualRecorder` captures post-layer residuals from the real
    language-model stream.
 5. `fit_vqa_jacobian_lens()` averages `d h_final / d h_l` over VQA samples and
    saves resumable checkpoints.
-
-The fitted lens is still read as:
-
-```text
-lm_head(norm(J_l @ h_l))
-```
 
 ## Fit A Multimodal J-Lens
 
@@ -162,15 +216,15 @@ Example command for fitting every two layers on 100 VQAv2 samples:
 
 ```bash
 python3 scripts/qwen3vl_jlens_experiment.py \
-  --model XX/Qwen3-VL-4B-Instruct-ckpt \
-  --metadata XX/VQAv2_val_1000/splits/fit_900.jsonl \
+  --model "$MODEL_DIR" \
+  --metadata "$VQA_DIR/splits/fit_900.jsonl" \
   fit \
   --limit 100 \
   --layer-stride 2 \
   --dim-batch 16 \
   --position-scope all_nonfinal \
   --checkpoint-every 5 \
-  --out runs/qwen3vl_jlens_fit100_stride2/lens.pt
+  --out "$FIT_RUN/lens.pt"
 ```
 
 `dim_batch` controls how many Jacobian output dimensions are computed per
@@ -199,33 +253,41 @@ answer-type splits, and answer-variant group rank visualizations.
 
 ```bash
 python3 scripts/qwen3vl_compare_readouts.py \
-  --lens runs/qwen3vl_jlens_fit100_stride2/lens.ckpt.pt \
-  --metadata XX/VQAv2_val_1000/splits/val_100.jsonl \
+  --model "$MODEL_DIR" \
+  --lens "$JLENS_DIR/lens.pt" \
+  --metadata "$VQA_DIR/splits/val_100.jsonl" \
   --n 5 \
   --out-dir runs/qwen3vl_readout_compare_val5
 ```
 
-## Probe Target Words In One Image
+## Probe Target Phrases In One Image
 
-`scripts/qwen3vl_probe_target_word.py` tracks target-token ranks across layer and
-position for both native readout and J-lens readout.
+`scripts/qwen3vl_probe_target_word.py` tracks target phrase ranks across layer
+and position for both native readout and J-lens readout.
 
 ```bash
 python3 scripts/qwen3vl_probe_target_word.py \
+  --model "$MODEL_DIR" \
   --image assets/image.png \
   --prompt '思考图片的背后隐喻。' \
   --targets '禁止,色禽,鸟,鹦鹉,黄色,成人,淫秽,情色,低俗' \
-  --lens runs/qwen3vl_jlens_fit100_stride2/lens.ckpt.pt \
+  --lens "$JLENS_DIR/lens.pt" \
   --out-dir runs/qwen3vl_image1_multi_targets_metaphor_phrase \
   --max-new-tokens 200 \
   --top-k 20
 ```
 
-The scoring convention is:
+Readout semantics:
 
 ```text
 readout at position p predicts token p + 1
 ```
 
-If a target phrase appears in the generated text, the script excludes the target
-phrase's own token span from non-leaking summary statistics.
+Phrase-level scoring treats each target as a full tokenizer sequence:
+
+- phrase `rank` = max component-token rank across consecutive prediction
+  positions;
+- phrase `logprob` = sum of component-token logprobs;
+- top-k hit = every component token is top-k;
+- if a target phrase appears in generated text, its own token span is excluded
+  from non-leaking summary statistics.

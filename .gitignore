@@ -21,6 +21,11 @@ htmlcov/
 .agents/
 .codex/
 
+# Local downloaded assets
+/local_data/
+/local_models/
+/pretrained/
+
 # Editor / OS noise
 .DS_Store
 Thumbs.db
