@@ -24,6 +24,14 @@ prohibition/parrot concepts (`禁止`, `鸟`, `鹦鹉`, `黄色`), while adult o
 phrases remain much weaker, suggesting the model reads this image primarily as
 a prohibition/parrot-metaphor example rather than explicit sexual content.
 
+<p align="center">
+  <img src="assets/jlens_phrase_emergence_order_image1.png" alt="J-lens phrase emergence order by rank threshold" width="760">
+</p>
+
+**Emergence:** the readable order is roughly `禁止` first, then `鸟`/`黄色`,
+then `鹦鹉`, while sexual or vulgar phrases do not become strong top-20 J-space
+readouts.
+
 This repository extends the original Jacobian-lens code path to multimodal
 Qwen3-VL models. The goal is to inspect what each residual-stream layer is
 already making available for the model's own final readout.
