@@ -34,6 +34,43 @@ phrases remain much weaker.
 then `鹦鹉`; sexual or vulgar phrases do not become strong top-20 J-space
 readouts.
 
+## Example: Counterfactual Color Probe
+
+This probe keeps the object category fixed as `car` and swaps only the visual
+attribute:
+
+<p align="center">
+  <img src="assets/red_car.png" alt="Red car input" width="300">
+  <img src="assets/blue_car.png" alt="Blue car input" width="300">
+</p>
+
+**Prompts:** `What color is the object?`, `What color is the car?`,
+`Describe the color of the main object.`
+
+**Targets:** `red`, `blue`, `car`
+
+The experiment teacher-forces the expected one-word color answer and reads out
+the token immediately before the answer token, so the scored color token is not
+visible to the decoded residual state.
+
+<p align="center">
+  <img src="assets/jlens_color_counterfactual_rank.png" alt="J-lens counterfactual color rank by layer" width="760">
+</p>
+
+<p align="center">
+  <img src="assets/jlens_color_margin_by_layer.png" alt="J-lens color margin by layer" width="760">
+</p>
+
+**Conclusion:** by late layers, J-space distinguishes the concrete color
+attribute rather than only surfacing the shared object category `car`.
+
+| Readout | Result |
+|---|---|
+| J-lens L32 | expected median rank `2.0`; counter median rank `38.0`; color margin `8.604`; win rate `1.0` |
+| J-lens L34 | expected median rank `1.0`; counter median rank `44.5`; `car` median rank `46.0`; color margin `11.375`; win rate `1.0` |
+| Red car at J-lens L34 | `red` rank is `1` for all prompts; `blue` rank is `26` |
+| Blue car at J-lens L34 | `blue` rank is `1` for all prompts; `red` rank is `63` / `68` / `102` |
+
 ## Core Idea
 
 For a residual vector `h_l` at layer `l`, the multimodal J-lens transports it
@@ -122,6 +159,7 @@ scripts/
   qwen3vl_jlens_experiment.py   VQAv2 split creation and Qwen3-VL fitting
   qwen3vl_compare_readouts.py   native vs J-lens held-out readout comparison
   qwen3vl_probe_target_word.py  single-image target-phrase probing
+  qwen3vl_counterfactual_color_probe.py  red/blue car color counterfactual probe
 
 runs/             local experiment outputs and checkpoints, ignored by Git
 local_models/     optional local model downloads, ignored by Git
