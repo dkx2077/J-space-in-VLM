@@ -91,14 +91,22 @@ class JacobianLens:
         (so one Hub repo can host lenses for many models); ignored when
         ``name_or_path`` is itself a file. ``revision`` selects a Hub branch,
         tag, or commit. Deserialisation goes through :meth:`load`
-        (``weights_only=True``)."""
+        (``weights_only=True``).
+
+        When loading from the Hub, ``config.json`` is downloaded alongside the
+        requested lens file if present, so the local snapshot keeps the
+        lightweight lens metadata with the weights.
+        """
         if os.path.isfile(name_or_path):
             return cls.load(name_or_path)
         if not os.path.isdir(name_or_path):
             from huggingface_hub import snapshot_download
 
+            allow_patterns = ["config.json"]
+            if filename not in allow_patterns:
+                allow_patterns.append(filename)
             name_or_path = snapshot_download(
-                name_or_path, allow_patterns=[filename], revision=revision
+                name_or_path, allow_patterns=allow_patterns, revision=revision
             )
         return cls.load(os.path.join(name_or_path, filename))
 

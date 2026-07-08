@@ -1,6 +1,7 @@
 # Copyright 2026 Anthropic PBC
 # SPDX-License-Identifier: Apache-2.0
 
+import huggingface_hub
 import pytest
 import torch
 
@@ -136,6 +137,39 @@ def test_from_pretrained_local(tmp_path):
         str(deep), filename="gemma-2-27b/jlens/wikitext/lens.pt"
     )
     assert reloaded.n_prompts == 3 and reloaded.d_model == 6
+
+
+def test_from_pretrained_hub_downloads_config(tmp_path, monkeypatch):
+    """Hub loads request config.json together with the lens weights."""
+
+    lens = JacobianLens(jacobians={0: torch.randn(4, 4)}, n_prompts=2, d_model=4)
+    repo_cache = tmp_path / "repo"
+    repo_cache.mkdir()
+    lens.save(str(repo_cache / "lens.pt"))
+    (repo_cache / "config.json").write_text("{}", encoding="utf-8")
+    calls = []
+
+    def fake_snapshot_download(repo_id, *, allow_patterns, revision):
+        calls.append(
+            {
+                "repo_id": repo_id,
+                "allow_patterns": allow_patterns,
+                "revision": revision,
+            }
+        )
+        return str(repo_cache)
+
+    monkeypatch.setattr(huggingface_hub, "snapshot_download", fake_snapshot_download)
+    reloaded = JacobianLens.from_pretrained("owner/repo", revision="main")
+
+    assert reloaded.n_prompts == 2
+    assert calls == [
+        {
+            "repo_id": "owner/repo",
+            "allow_patterns": ["config.json", "lens.pt"],
+            "revision": "main",
+        }
+    ]
 
 
 def test_merge_weighted_mean():

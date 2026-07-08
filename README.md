@@ -134,7 +134,7 @@ Download the released multimodal J-lens weights:
 ```bash
 mkdir -p "$JLENS_DIR"
 hf download dkx2077/qwen3-vl-4b-multimodal-jlens-vqav2-100 \
-  lens.pt lens.ckpt.pt metadata.json README.md \
+  config.json lens.pt lens.ckpt.pt metadata.json README.md \
   --local-dir "$JLENS_DIR"
 ```
 
@@ -142,6 +142,9 @@ The hosted `lens.pt` is the averaged J-lens file for readout/probing. The
 hosted `lens.ckpt.pt` is a resumable fitting checkpoint. This release was
 started as a 100-sample VQAv2 run, but the uploaded weights contain 49 completed
 fit samples after one OOM-skipped sample and an interrupted run.
+
+`config.json` is lightweight lens metadata; `metadata.json` contains the full
+fit record.
 
 ## Repository Layout
 
